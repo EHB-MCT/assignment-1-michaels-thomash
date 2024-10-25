@@ -1,5 +1,6 @@
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
+const { v4: uuidv4, validate: uuidValidate } = require("uuid");
 const bcrypt = require("bcrypt");
 const { MongoClient } = require("mongodb");
 const cors = require("cors");
@@ -11,12 +12,26 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const url = config.final_url;
 const dbName = "Webshop";
-const usersCollection = "Users"; 
-const wallpapersCollection = "Wallpapers"; 
+const usersCollection = "Users";
+const wallpapersCollection = "Wallpapers";
 
 app.use(cors());
 app.use(uploadRoute);
 app.use(express.json());
+app.use((req, res, next) => {
+	const authHeader = req.headers.authorization;
+	if (authHeader && authHeader.startsWith("Bearer ")) {
+		const sessionToken = authHeader.substring(7);
+		const userSession = Object.entries(activeSessions).find(([_, session]) => session.token === sessionToken);
+		if (userSession) {
+			req.user = {
+				id: userSession[0],
+				...userSession[1],
+			};
+		}
+	}
+	next();
+});
 
 let db;
 const client = new MongoClient(url);
@@ -30,7 +45,7 @@ client
 	.catch((err) => {
 		console.error("MongoDB connection error:", err.message);
 		process.exit(1);
-	});	
+	});
 
 app.post("/login", async (req, res) => {
 	if (!req.body.email || !req.body.password) {
@@ -83,7 +98,7 @@ app.post("/register", async (req, res) => {
 	if (!req.body.username || !req.body.email || !req.body.password) {
 		return res.status(400).send({
 			status: "Bad Request",
-			message: "Some fields are missing"
+			message: "Some fields are missing",
 		});
 	}
 
@@ -92,17 +107,17 @@ app.post("/register", async (req, res) => {
 
 		const hashedPassword = await bcrypt.hash(req.body.password, 10);
 		const user = {
-			id: customId,           
+			id: customId,
 			username: req.body.username,
 			email: req.body.email,
 			password: hashedPassword,
 			uuid: uuidv4(),
-			subscription: "free",      
-			purchaseHistory: [],        
-			downloadHistory: [],        
-			favorites: [],              
-			dateJoined: new Date(),      
-			description: ""
+			subscription: "free",
+			purchaseHistory: [],
+			downloadHistory: [],
+			favorites: [],
+			dateJoined: new Date(),
+			description: "",
 		};
 
 		const insertedUser = await db.collection(usersCollection).insertOne(user);
@@ -110,99 +125,98 @@ app.post("/register", async (req, res) => {
 		res.status(200).send({
 			status: "Saved",
 			message: "User has been saved!",
-			data: insertedUser
+			data: insertedUser,
 		});
 	} catch (error) {
 		console.log(error);
 		res.status(500).send({
-			error: 'Something went wrong!',
-			value: error
+			error: "Something went wrong!",
+			value: error,
 		});
 	}
 });
 
 async function getNextSequenceValue(sequenceName) {
-    try {
-        let sequenceDocument = await db.collection("Counters").findOne({ _id: sequenceName });
+	try {
+		let sequenceDocument = await db.collection("Counters").findOne({ _id: sequenceName });
 
-        if (!sequenceDocument) {
-            sequenceDocument = { _id: sequenceName, sequenceValue: 0 };
-            await db.collection("Counters").insertOne(sequenceDocument);
-        }
+		if (!sequenceDocument) {
+			sequenceDocument = { _id: sequenceName, sequenceValue: 0 };
+			await db.collection("Counters").insertOne(sequenceDocument);
+		}
 
-        const result = await db.collection("Counters").findOneAndUpdate(
-            { _id: sequenceName },
-            { $inc: { sequenceValue: 1 } },
-            { 
-                returnDocument: 'after',
-                upsert: true 
-            }
-        );
+		const result = await db.collection("Counters").findOneAndUpdate(
+			{ _id: sequenceName },
+			{ $inc: { sequenceValue: 1 } },
+			{
+				returnDocument: "after",
+				upsert: true,
+			}
+		);
 
-        console.log("Raw result from findOneAndUpdate:", result);
+		console.log("Raw result from findOneAndUpdate:", result);
 
-        if (!result) {
-            throw new Error("No result returned from findOneAndUpdate");
-        }
+		if (!result) {
+			throw new Error("No result returned from findOneAndUpdate");
+		}
 
-        const updatedSequenceValue = result.sequenceValue;
+		const updatedSequenceValue = result.sequenceValue;
 
-        if (typeof updatedSequenceValue !== 'number') {
-            throw new Error("Invalid sequence value returned");
-        }
+		if (typeof updatedSequenceValue !== "number") {
+			throw new Error("Invalid sequence value returned");
+		}
 
-        console.log("Successfully generated new sequence value:", updatedSequenceValue);
-        return updatedSequenceValue;
-    } catch (error) {
-        console.error("Error in getNextSequenceValue:", error);
-        throw error;
-    }
+		console.log("Successfully generated new sequence value:", updatedSequenceValue);
+		return updatedSequenceValue;
+	} catch (error) {
+		console.error("Error in getNextSequenceValue:", error);
+		throw error;
+	}
 }
 
 app.post("/verifyID", async (req, res) => {
-    if (!req.body.uuid) {
-        return res.status(400).send({
-            status: "Bad Request",
-            message: "ID is missing"
-        });
-    }
+	if (!req.body.uuid) {
+		return res.status(400).send({
+			status: "Bad Request",
+			message: "ID is missing",
+		});
+	}
 
-    if (!uuidValidate(req.body.uuid)) {
-        return res.status(400).send({
-            status: "Bad Request",
-            message: "ID is not a valid UUID"
-        });
-    }
+	if (!uuidValidate(req.body.uuid)) {
+		return res.status(400).send({
+			status: "Bad Request",
+			message: "ID is not a valid UUID",
+		});
+	}
 
-    try {
-        const collection = db.collection(usersCollection);
-        const user = await collection.findOne({ uuid: req.body.uuid });
+	try {
+		const collection = db.collection(usersCollection);
+		const user = await collection.findOne({ uuid: req.body.uuid });
 
-        if (user) {
-            res.status(200).send({
-                status: "Verified",
-                message: "Your UUID is valid",
-                data: {
-                    username: user.username,
-                    email: user.email,
-                    uuid: user.uuid,
-                }
-            });
-        } else {
-            res.status(401).send({
-                status: "Verify Error",
-                message: `No user exists with ID: ${req.body.uuid}`
-            });
-        }
-    } catch (error) {
-        console.log(error);
-        res.status(500).send({
-            error: 'Something went wrong!',
-            value: error
-        });
-    }
+		if (user) {
+			res.status(200).send({
+				status: "Verified",
+				message: "Your UUID is valid",
+				data: {
+					username: user.username,
+					email: user.email,
+					uuid: user.uuid,
+				},
+			});
+		} else {
+			res.status(401).send({
+				status: "Verify Error",
+				message: `No user exists with ID: ${req.body.uuid}`,
+			});
+		}
+	} catch (error) {
+		console.log(error);
+		res.status(500).send({
+			error: "Something went wrong!",
+			value: error,
+		});
+	}
 });
-
 
 app.get("/Wallpapers", async (req, res) => {
 	try {
