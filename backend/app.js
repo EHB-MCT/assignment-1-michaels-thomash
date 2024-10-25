@@ -3,6 +3,7 @@ const { MongoClient } = require("mongodb");
 const cors = require("cors");
 const config = require("./config.json");
 const uploadRoute = require("./uploadRoute");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

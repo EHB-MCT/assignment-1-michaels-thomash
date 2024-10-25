@@ -32,9 +32,10 @@ function App() {
 			) : (
 				<ul>
 					{wallpapers.map((wallpaper) => (
-						<li key={wallpaper._id}>
+						<li key={wallpaper.id}>
 							<h3>{wallpaper.name}</h3>
-							<img src={wallpaper.imageUrl} alt={wallpaper.name} width="200" />
+							<img src={wallpaper.imageURL} alt={wallpaper.name} width="200" />
+							<p>{wallpaper.price}</p>
 							<p>{wallpaper.description}</p>
 						</li>
 					))}
