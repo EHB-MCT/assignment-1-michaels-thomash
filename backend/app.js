@@ -2,6 +2,7 @@ const express = require("express");
 const { MongoClient } = require("mongodb");
 const cors = require("cors");
 const config = require("./config.json");
+const uploadRoute = require("./uploadRoute");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,6 +11,7 @@ const dbName = "Webshop";
 const collectionName = "Wallpapers";
 
 app.use(cors());
+app.use(uploadRoute);
 app.use(express.json());
 
 let db;
