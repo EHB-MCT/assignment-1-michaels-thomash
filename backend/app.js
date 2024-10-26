@@ -64,24 +64,6 @@ app.post("/logout", async (req, res) => {
     });
 });
 
-let activeSessions = {};
-
-app.post("/logout", async (req, res) => {
-	if (!req.user) {
-		return res.status(401).send({
-			status: "Auth Error",
-			message: "You must be logged in to logout",
-		});
-	}
-
-	delete activeSessions[req.user.id];
-
-	res.status(200).send({
-		status: "Logged Out",
-		message: "You have successfully logged out",
-	});
-});
-
 app.post("/login", async (req, res) => {
     if (!req.body.email || !req.body.password) {
         return res.status(400).send({
@@ -132,44 +114,6 @@ app.post("/login", async (req, res) => {
             value: error.message || error,
         });
     }
-		if (user) {
-			const validPassword = await bcrypt.compare(req.body.password, user.password);
-			if (validPassword) {
-				const sessionToken = uuidv4();
-				activeSessions[user.id] = {
-					email: user.email,
-					token: sessionToken,
-				};
-
-				res.status(200).send({
-					status: "Auth Success",
-					message: "You are logged in!",
-					data: {
-						username: user.username,
-						email: user.email,
-						uuid: user.uuid,
-						token: sessionToken,
-					},
-				});
-			} else {
-				res.status(401).send({
-					status: "Auth Error",
-					message: "Password incorrect",
-				});
-			}
-		} else {
-			res.status(401).send({
-				status: "Auth Error",
-				message: "No user with this email has been found!",
-			});
-		}
-	} catch (error) {
-		console.error(error);
-		res.status(500).send({
-			error: "Something went wrong!",
-			value: error.message || error,
-		});
-	}
 });
 
 app.post("/register", async (req, res) => {
@@ -297,7 +241,10 @@ app.post("/verifyID", async (req, res) => {
         });
     }
 });
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1ce5749 (feat(api): add user authentication endpoint)
 
 app.get("/Wallpapers", async (req, res) => {
 	try {
